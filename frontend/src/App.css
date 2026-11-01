@@ -1,0 +1,16 @@
+.font-display { font-family: "Outfit", sans-serif; }
+.font-num { font-family: "JetBrains Mono", monospace; font-variant-numeric: tabular-nums; }
+
+.field-grid {
+  background-image:
+    linear-gradient(rgba(212, 175, 55, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(212, 175, 55, 0.05) 1px, transparent 1px);
+  background-size: 56px 56px;
+}
+
+.rise { animation: rise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+.gold-edge { box-shadow: 0 0 0 1px #D4AF37, 0 0 24px -8px rgba(229, 193, 88, 0.55); }
+
+::selection { background: #E5C158; color: #04120B; }

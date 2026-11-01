@@ -1,0 +1,120 @@
+{
+  "project_name": "NFL 1st Quarter & 1st Half ML Prediction Dashboard",
+  "route": "/sports/nfl",
+  "theme": "Dark Green & Gold Tactical Luxury (Performance Sports Analytics)",
+  "color_palette": {
+    "background_main": "#04120B",
+    "background_card": "#0A2216",
+    "background_card_hover": "#0F2F1F",
+    "background_card_elevated": "#143D29",
+    "border_subtle": "rgba(212, 175, 55, 0.18)",
+    "border_gold_glow": "#D4AF37",
+    "primary_gold": "#E5C158",
+    "primary_gold_hover": "#F5D061",
+    "text_primary": "#F0FDF4",
+    "text_secondary": "#99F6E4",
+    "text_muted": "#6EE7B7",
+    "text_dim": "#34D399",
+    "accent_green_positive": "#10B981",
+    "accent_red_negative": "#EF4444",
+    "accent_blue_highlight": "#38BDF8",
+    "sportsbook_brands": {
+      "DraftKings": "#53B236",
+      "FanDuel": "#1E90FF",
+      "BetMGM": "#CCA43B",
+      "Caesars": "#D4AF37",
+      "ESPN_BET": "#00A896",
+      "Fanatics": "#E63946",
+      "Bet365": "#FFCC00"
+    }
+  },
+  "typography": {
+    "font_family_heading": "Outfit, sans-serif",
+    "font_family_body": "Plus Jakarta Sans, sans-serif",
+    "font_family_mono": "JetBrains Mono, monospace",
+    "sizes": {
+      "hero_title": "text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight",
+      "section_header": "text-xl sm:text-2xl font-bold tracking-tight",
+      "card_title": "text-lg font-semibold",
+      "data_number": "font-mono font-bold tracking-tight",
+      "label_eyebrow": "text-xs font-semibold uppercase tracking-widest text-emerald-400"
+    }
+  },
+  "layout_strategy": {
+    "type": "Single-page responsive dashboard panel",
+    "container_padding": "px-4 sm:px-6 lg:px-8 py-6",
+    "max_width": "max-w-7xl mx-auto",
+    "sections": [
+      {
+        "id": "header_nav",
+        "description": "LLC Brand Header + Route indicator /sports/nfl + Live vs Sample Data Badge + Top Stat Bar"
+      },
+      {
+        "id": "control_bar",
+        "description": "Season & Week Selector (2026 Week 8 default), Market Filter (All, Q1 ML, Q1 Spread, Q1 Total, 1H ML, 1H Spread, 1H Total), Min EV Threshold Filter, Sportsbook Filter"
+      },
+      {
+        "id": "top_edges_carousel",
+        "description": "Top High-Value Signals (Edge >= +4.0% EV) highlighted with glowing gold borders and quick bet-builder context"
+      },
+      {
+        "id": "game_cards_grid",
+        "description": "Grid of Week 8 Games showing team logos/names, Kickoff time, Predicted Q1 score, Predicted 1H score, Model Fair Lines, Best Edge Pill, and 'Compare 7 Sportsbooks' modal trigger"
+      },
+      {
+        "id": "odds_comparison_modal",
+        "description": "Modal/Drawer comparing moneyline, spread, and total across DraftKings, FanDuel, BetMGM, Caesars, ESPN BET, Fanatics, Bet365 for Q1 and 1H with highlighted model edges"
+      },
+      {
+        "id": "model_info_panel",
+        "description": "Collapsible XGBoost Model Architecture panel showing features (EPA/play, neutral pass rate, pace, turnover margin), backtest MAE (Q1: 3.1 pts, 1H: 4.8 pts), and data sources (nflreadpy 2018-2025)"
+      }
+    ]
+  },
+  "key_features_and_data": {
+    "default_week": "2026 NFL Week 8",
+    "sportsbooks": [
+      "DraftKings",
+      "FanDuel",
+      "BetMGM",
+      "Caesars",
+      "ESPN BET",
+      "Fanatics",
+      "Bet365"
+    ],
+    "prediction_markets": [
+      "Q1 Moneyline",
+      "Q1 Spread",
+      "Q1 Total",
+      "1H Moneyline",
+      "1H Spread",
+      "1H Total"
+    ],
+    "xgboost_features": [
+      "Offensive EPA/play (rolling 5-game weighted)",
+      "Defensive EPA/play allowed",
+      "Neutral Situation Pace (seconds per play)",
+      "Pass Rate Over Expectation (PROE)",
+      "Turnover Margin & Short Field Efficiency",
+      "Q1 Drive Conversion Rate"
+    ]
+  },
+  "image_urls": {
+    "stadium_bg": "https://images.unsplash.com/photo-1557174949-3b1f5b2e8fac?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NDh8MHwxfHNlYXJjaHwxfHxuZmwlMjBhbWVyaWNhbiUyMGZvb3RiYWxsJTIwc3RhZGl1bSUyMG5pZ2h0JTIwbGlnaHR8ZW58MHx8fHwxNzkzNTYwNDIxfDA&ixlib=rb-4.1.0&q=85",
+    "stadium_lights": "https://images.unsplash.com/photo-1676746424139-77f8bd8922a8?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NDh8MHwxfHNlYXJjaHw0fHxuZmwlMjBhbWVyaWNhbiUyMGZvb3RiYWxsJTIwc3RhZGl1bSUyMG5pZ2h0JTIwbGlnaHR8ZW58MHx8fHwxNzkzNTYwNDIxfDA&ixlib=rb-4.1.0&q=85"
+  },
+  "component_instructions": {
+    "use_shadcn": true,
+    "shadcn_components": ["Card", "Button", "Badge", "Dialog", "Select", "Tabs", "Tooltip", "Table", "Slider", "Switch"],
+    "toast_library": "sonner",
+    "testing_attributes": "All buttons, inputs, tabs, selects, and modal triggers MUST include a data-testid attribute in kebab-case."
+  },
+  "UNIVERSAL GUIDELINES FOR MAIN AGENT": [
+    "Use dark green (#04120B / #0A2216) as the primary base with metallic gold (#E5C158 / #D4AF37) for edge highlights.",
+    "Do NOT use transparent backgrounds on headers or dialog overlays.",
+    "Ensure numbers for scores, odds (+110, -115), spread (-2.5), total (O/U 10.5), and EV (+5.2%) are rendered in monospace font.",
+    "Include all 7 requested sportsbooks: DraftKings, FanDuel, BetMGM, Caesars, ESPN BET, Fanatics, Bet365 in odds comparison tables.",
+    "Ensure default displayed week is 2026 NFL Week 8 with clear week selector.",
+    "All interactive elements must have data-testid attributes."
+  ]
+}
