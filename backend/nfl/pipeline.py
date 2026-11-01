@@ -79,6 +79,8 @@ def run(season=None, week=None, log=print):
         wk = [d for d in docs if d["week"] == w]
         odocs, _ = odds_docs([{**d} for d in wk], names, live=(w == week))
         for o in odocs:
+            if w < week and db.nfl_odds.count_documents({"game_id": o["game_id"]}):
+                continue  # keep stored odds for past weeks
             db.nfl_odds.replace_one({"game_id": o["game_id"]}, o, upsert=True)
 
     db.nfl_meta.replace_one({"_id": "model"}, {

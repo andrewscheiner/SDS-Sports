@@ -31,7 +31,7 @@ export const ModelPanel = ({ meta }) => {
             <Stat testid="mae-h1" label="1H MAE / team" value={h1.mae.toFixed(2)} sub={`Vegas-share baseline ${h1.baseline_mae.toFixed(2)}`} />
           </div>
           <p className="text-xs text-emerald-100/40">
-            Backtest {meta.backtest_seasons.join(", ")} · {meta.n_train_rows.toLocaleString()} team-games · trained {new Date(meta.trained_at).toLocaleString()}
+            Backtest {meta.backtest_seasons.join(", ")} · {meta.n_train_rows.toLocaleString()} team-games · trained {new Date(meta.trained_at).toLocaleString()} · auto-refreshes daily 7:00 AM ET
           </p>
         </div>
         <div data-testid="feature-importance" className="space-y-2">

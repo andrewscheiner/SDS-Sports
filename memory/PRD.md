@@ -16,6 +16,7 @@ Odds API (no key yet → placeholder key, SAMPLE odds) · show 2026 Week 8 · tr
 - Frontend route `/sports/nfl`.
 
 ## Implemented (2026-11-01)
+- Daily auto-refresh: `.emergent/crons.yml` (7:00 AM ET) → `POST /api/cron/nfl-refresh` (Bearer WEBHOOK_CRON_SECRET, idempotent on run id, background retrain + current-week odds; past-week odds preserved).
 - Full pipeline, walk-forward weekly predictions 2026 W1–8, graded past weeks, dashboard (week select, Q1/1H filter, min-EV, top edges, game cards, 7-book odds dialog, model panel, refresh/retrain).
 
 ## Backlog

@@ -1,4 +1,6 @@
-from fastapi import FastAPI, APIRouter, HTTPException, BackgroundTasks
+from fastapi import FastAPI, APIRouter, HTTPException, BackgroundTasks, Request
+from pymongo.errors import DuplicateKeyError
+import hmac
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -118,6 +120,32 @@ async def pipeline_run(bg: BackgroundTasks, season: int | None = None, week: int
     JOB.update(status="running", message="Queued")
     bg.add_task(_run_job, season, week)
     return JOB
+
+
+@api.post("/cron/nfl-refresh", status_code=202)
+async def cron_nfl_refresh(request: Request, bg: BackgroundTasks):
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    auth = request.headers.get("authorization", "")
+    token = auth[7:] if auth.startswith("Bearer ") else ""
+    if not token or not hmac.compare_digest(token, os.environ["WEBHOOK_CRON_SECRET"]):
+        raise HTTPException(401, "Unauthorized")
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(400, "Invalid body")
+    run_id = request.headers.get("x-webhook-id") or (body or {}).get("run_id")
+    if not run_id:
+        raise HTTPException(400, "Missing run id")
+    try:
+        await db.cron_runs.insert_one({"_id": run_id, "job": "nfl-refresh",
+                                       "received_at": datetime.now(timezone.utc).isoformat()})
+    except DuplicateKeyError:
+        return {"status": "duplicate"}
+    if JOB["status"] == "running":
+        return {"status": "already_running"}
+    JOB.update(status="running", message="Queued (daily refresh)")
+    bg.add_task(_run_job, None, None)
+    return {"status": "queued"}
 
 
 @api.get("/nfl/pipeline/status")
