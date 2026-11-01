@@ -23,7 +23,8 @@ export const ModelPanel = ({ meta }) => {
           <p className="text-sm text-emerald-100/60">
             Two XGBoost regressors (team Q1 and 1H points) trained on {meta.train_start}–{meta.season} play-by-play
             from nflreadpy, retrained weekly with no look-ahead. Probabilities come from simulating
-            backtest residuals around each projection.
+            backtest residuals around each projection. Projections are blended 50/50 with the Vegas-implied
+            share, so edges reflect where the model disagrees with the market — treat small edges as noise.
           </p>
           <div className="grid grid-cols-2 gap-3">
             <Stat testid="mae-q1" label="Q1 MAE / team" value={q1.mae.toFixed(2)} sub={`Vegas-share baseline ${q1.baseline_mae.toFixed(2)}`} />

@@ -22,7 +22,7 @@ export const GameCard = ({ game: g, index, period, minEv, onOpen }) => {
   const best = g.edges
     .filter((e) => period === "all" || e.market.startsWith(period))
     .reduce((b, e) => (!b || e.ev > b.ev ? e : b), null);
-  const hot = best && best.ev >= Math.max(minEv, 0.04);
+  const hot = best && best.ev >= Math.max(minEv, 0.08);
   const fair = (p) => `${g.home_team} ${fmtPoint(-Math.round(g.fair[p].margin * 2) / 2 || 0)} · O/U ${(Math.round(g.fair[p].total * 2) / 2).toFixed(1)}`;
 
   return (

@@ -1,0 +1,37 @@
+{
+  "summary": "First run on the NFL Q1/1H dashboard. Backend: 7 of 7 pytest tests pass (meta, week 8, graded week 5, empty week, missing params returning 422, odds refresh, pipeline run with 409 guard and polling). Frontend: everything requested works. / redirects to /sports/nfl. The Sample odds badge shows. The week select has 8 options and switching works (week 5 shows finals and a 31-31-2 record). The period tabs, min EV slider, top-edge cards, compare-books dialog (7 book rows, Q1/1H tabs), model panel (MAE, 12 features), Odds refresh toast and Retrain toast (finishes, button re-enables, still 14 games) all work. No console or page errors. Main concern: the model is not better than the baseline, yet it reports large edges everywhere.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/nfl/week", "issue": "top_edges is cut to the top 10 by EV across all periods before the frontend filters by period. On the 1st Quarter tab only 3 cards show for week 8 even though more positive-EV Q1 edges exist. Fix: return more edges, or the top N per period."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "TopEdges", "issue": "The Q1 tab under-fills (3 cards) because of the 10-edge cut on the backend", "selector": "[data-testid^='top-edge-']", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Game grid", "issues": ["Almost every card gets the gold-edge highlight because nearly every game has best EV of 4% or more, so the highlight means little"]},
+      {"screen": "Header", "issues": ["The '/ sports / nfl' breadcrumb (text-emerald-400/40) has very low contrast"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_nfl_api.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Model calibration: the backtest MAE is no better than the Vegas-share baseline (Q1 3.45 vs 3.42, 1H 5.25 vs 5.23), yet every week-8 game shows a best edge of 5-18% EV and top edges reach about 21%. The graded week 5 +4% EV plays went 31-31-2 for -1.43u. The edges come from noise and from the fixed-ratio sample lines, not real value. Consider shrinking projections toward the market, or showing a caveat.",
+    "Return the top edges per period (or more than 10) so the Q1 and 1H tabs fill properly.",
+    "Optional: raise the gold-edge threshold or base it on minEv so the highlight means something."
+  ],
+  "critical_code_review_comments": [
+    "server.py JOB state is in memory: a hot reload or restart during a pipeline run loses the status, and with several workers each one has its own JOB.",
+    "nfl_week has no validation on season/week ranges; it returns an empty list, which is acceptable.",
+    "The OddsDialog period state (p) carries over between games, which is fine.",
+    "The pipeline runs in the BackgroundTasks threadpool (sync def). It takes about 5s with cached parquet files. The first run without the cache will be slower and blocks one threadpool worker."
+  ],
+  "updated_files": ["/app/backend/tests/test_nfl_api.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "None. The pipeline was re-run twice (via the API and the UI Retrain), and odds refresh regenerated the sample odds for week 8.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "The system clock is 2026-11-01. In week 8 the Thursday game 2026_08_CAR_GB is already final (has actuals); the other 13 are pending. Week 5 has 15 games, all graded. Run tests with: REACT_APP_BACKEND_URL=... pytest backend/tests/test_nfl_api.py (pytest.ini uses xdist loadscope). Writing files under /app/backend triggers a backend hot reload, which resets the JOB status."
+}

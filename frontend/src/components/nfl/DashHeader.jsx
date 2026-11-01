@@ -9,7 +9,7 @@ export const DashHeader = ({ meta }) => {
         <div className="flex items-center gap-3 text-xs uppercase tracking-[0.25em] text-emerald-400/80">
           <Activity className="h-4 w-4 text-[#E5C158]" />
           <span>Scheiner Digital Solutions</span>
-          <span className="text-emerald-400/40">/ sports / nfl</span>
+          <span className="text-emerald-300/70">/ sports / nfl</span>
         </div>
         <div className="mt-5 flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
           <div className="rise">

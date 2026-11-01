@@ -74,7 +74,8 @@ async def nfl_week(season: int, week: int):
     best = {}
     for e in sorted(all_edges, key=lambda e: -e["ev"]):
         best.setdefault((e["game_id"], e["market"], e["side"]), e)
-    top = [e for e in best.values() if e["ev"] > 0][:10]
+    top = sorted([e for p in ("q1", "h1") for e in [x for x in best.values()
+                  if x["ev"] > 0 and x["market"].startswith(p)][:10]], key=lambda e: -e["ev"])
     graded = [e for e in best.values() if e["ev"] >= 0.04 and e["result"]]
     record = {r: sum(e["result"] == r for e in graded) for r in ("win", "loss", "push")}
     record["units"] = round(sum(

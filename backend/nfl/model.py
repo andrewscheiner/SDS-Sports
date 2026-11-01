@@ -9,12 +9,16 @@ PARAMS = dict(objective="count:poisson", n_estimators=300, max_depth=2, learning
               colsample_bytree=0.8, min_child_weight=10, reg_lambda=2.0, n_jobs=4)
 
 
+MARKET_WEIGHT = 0.5  # shrink XGBoost projection toward the Vegas-implied share
+
+
 def fit(train):
     models = {}
     for t in TARGETS:
         d = train[train[t].notna()]
         m = XGBRegressor(**PARAMS)
         m.fit(d[FEATURES], d[t])
+        m.share_ = float((d[t] / d["implied_total"]).median())
         models[t] = m
     return models
 
@@ -22,7 +26,9 @@ def fit(train):
 def predict(models, df):
     out = df.copy()
     for t, m in models.items():
-        out[f"pred_{t}"] = np.clip(m.predict(df[FEATURES]), 0, None)
+        raw = np.clip(m.predict(df[FEATURES]), 0, None)
+        market = (df["implied_total"] * m.share_).fillna(pd.Series(raw, index=df.index)).to_numpy()
+        out[f"pred_{t}"] = (1 - MARKET_WEIGHT) * raw + MARKET_WEIGHT * market
     return out
 
 
