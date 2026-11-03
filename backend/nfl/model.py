@@ -1,4 +1,13 @@
-"""XGBoost models for team Q1 and 1H points, with walk-forward backtest."""
+"""XGBoost models for team Q1 and 1H points, with walk-forward backtest.
+
+- Two regressors: one predicts a team's Q1 points, one its 1H points (each row = one team in one game).
+- Objective count:poisson because points are non-negative counts with a right skew; in a quick
+  comparison it matched or beat squared-error/absolute-error.
+- Shallow trees (depth 2) + low learning rate + subsampling = strong regularization; football
+  scoring is very noisy and deeper trees overfit.
+- Final projection = 50% XGBoost + 50% Vegas-implied share. In backtests the raw model alone was
+  not better than the market, so shrinking toward the market keeps edges realistic.
+"""
 import numpy as np
 import pandas as pd
 from xgboost import XGBRegressor
@@ -18,6 +27,7 @@ def fit(train):
         d = train[train[t].notna()]
         m = XGBRegressor(**PARAMS)
         m.fit(d[FEATURES], d[t])
+        # Typical fraction of the Vegas team total scored in this period (Q1 ~0.2, 1H ~0.5).
         m.share_ = float((d[t] / d["implied_total"]).median())
         models[t] = m
     return models
@@ -34,6 +44,8 @@ def predict(models, df):
 
 def backtest(tg, test_seasons):
     """Train on all prior seasons, test each season. Returns metrics + paired game residuals."""
+    # e.g. test 2023 with a model trained on 2018-22, 2024 on 2018-23, 2025 on 2018-24.
+    # baseline_mae = just using implied_total * share, the bar the model has to beat.
     preds = []
     for s in test_seasons:
         models = fit(tg[(tg["season"] < s) & tg["season"].ge(2018)])
@@ -47,6 +59,8 @@ def backtest(tg, test_seasons):
             "baseline_mae": round(float((p[t] - p["implied_total"] * share).abs().mean()), 3),
             "n": int(len(p)),
         }
+    # Residual = actual - predicted, kept as (home, away) PAIRS from the same game so the
+    # correlation between both teams' errors is preserved; edges.py simulates with them.
     home = p[p["is_home"] == 1].set_index("game_id")
     away = p[p["is_home"] == 0].set_index("game_id").reindex(home.index)
     residuals = {

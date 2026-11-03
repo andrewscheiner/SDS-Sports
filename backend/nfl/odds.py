@@ -6,8 +6,7 @@ import numpy as np
 import requests
 from scipy.stats import norm
 
-BOOKS = {"draftkings": "DraftKings", "fanduel": "FanDuel", "betmgm": "BetMGM",
-         "williamhill_us": "Caesars", "espnbet": "ESPN BET", "fanatics": "Fanatics", "bet365": "Bet365"}
+BOOKS = {"draftkings": "DraftKings", "fanduel": "FanDuel", "betmgm": "BetMGM", "espnbet": "ESPN BET"}
 API_MARKETS = {"h2h_q1": "q1_ml", "spreads_q1": "q1_spread", "totals_q1": "q1_total",
                "h2h_h1": "h1_ml", "spreads_h1": "h1_spread", "totals_h1": "h1_total"}
 BASE = "https://api.the-odds-api.com/v4/sports/americanfootball_nfl"

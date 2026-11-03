@@ -31,4 +31,4 @@ export const betLabel = (e) => {
 };
 
 export const evClass = (ev) =>
-  ev >= 0.04 ? "text-[#E5C158]" : ev > 0 ? "text-emerald-400" : "text-emerald-100/40";
+  ev >= 0.04 ? "text-[#ffb71b]" : ev > 0 ? "text-teal-300" : "text-[#718789]";

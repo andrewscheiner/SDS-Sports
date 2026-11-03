@@ -1,4 +1,14 @@
-"""Feature engineering: nflreadpy play-by-play -> one row per team per game."""
+"""Feature engineering: nflreadpy play-by-play -> one row per team per game.
+
+How this extends the original notebook (test.ipynb):
+- The notebook loaded 2025 pbp, filtered pass/run plays and split scores by quarter.
+- Here we load 2018 through the current season, compute per-team-per-game stats
+  (offense and defense, full game / Q1 / 1H), then turn them into PRE-GAME features
+  using an exponentially weighted average of each team's previous games, so the model
+  never sees the game it is predicting (no leakage).
+- Each game becomes 2 rows (home perspective + away perspective). Target = that
+  team's points in Q1 and in 1H.
+"""
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -17,6 +27,8 @@ PTS = ["pts_q1", "pts_h1", "pts_q1_allowed", "pts_h1_allowed"]
 
 
 def load_pbp(seasons, current_season):
+    # Completed seasons never change, so they are cached as parquet after the first download.
+    # The current season is always re-downloaded so new games are picked up each refresh.
     frames = []
     for s in seasons:
         f = DATA_DIR / f"pbp_{s}.parquet"
@@ -41,21 +53,28 @@ def team_names():
 
 
 def _play_stats(pbp):
+    # Same filter idea as the notebook's game_plays: only real offensive snaps (pass/run).
     p = pbp[pbp["play_type"].isin(["pass", "run"]) & pbp["posteam"].notna() & pbp["epa"].notna()].copy()
     q1, h1 = p["qtr"] == 1, p["qtr"] <= 2
+    # "Neutral" = game still competitive (win prob 20-80%, not 4th qtr): pass rate here
+    # reflects coaching tendency instead of garbage-time / catch-up passing.
     neutral = p["wp"].between(0.2, 0.8) & (p["qtr"] <= 3)
+    # Explosive = 20+ yard pass or 10+ yard run.
     p["q1"], p["h1"] = q1.astype(int), h1.astype(int)
     p["explosive"] = (((p["pass"] == 1) & (p["yards_gained"] >= 20)) | ((p["rush"] == 1) & (p["yards_gained"] >= 10))).astype(int)
     p["to"] = p["interception"].fillna(0) + p["fumble_lost"].fillna(0)
+    # Period-specific columns: NaN outside the period, so .mean() averages only Q1 (or 1H) plays.
     p["epa_q1"], p["epa_h1"] = p["epa"].where(q1), p["epa"].where(h1)
     p["succ_q1"] = p["success"].where(q1)
     p["pass_neutral"] = p["pass"].where(neutral)
+    # Offense: grouped by the team WITH the ball. plays / q1_plays / h1_plays = pace (number of plays run).
     off = p.groupby(["game_id", "posteam"]).agg(
         plays=("epa", "size"), epa=("epa", "mean"), success=("success", "mean"),
         pass_rate_neutral=("pass_neutral", "mean"), explosive=("explosive", "mean"),
         turnovers=("to", "sum"), q1_plays=("q1", "sum"), h1_plays=("h1", "sum"),
         epa_q1=("epa_q1", "mean"), epa_h1=("epa_h1", "mean"), succ_q1=("succ_q1", "mean"),
     ).reset_index().rename(columns={"posteam": "team"})
+    # Defense: the same plays grouped by the team WITHOUT the ball = what that defense allowed.
     dfn = p.groupby(["game_id", "defteam"]).agg(
         plays=("epa", "size"), epa=("epa", "mean"), success=("success", "mean"),
         explosive=("explosive", "mean"), epa_q1=("epa_q1", "mean"), epa_h1=("epa_h1", "mean"),
@@ -66,6 +85,9 @@ def _play_stats(pbp):
 
 
 def game_scores(pbp):
+    # Targets. Like the notebook's game_results: total_home/away_score is the score AFTER each
+    # play (verified: last play == final score for every 2025 game), so the last play of
+    # qtr 1 gives the Q1 score and the last play with qtr <= 2 gives the halftime score.
     s = pbp.dropna(subset=["total_home_score"]).sort_values(["game_id", "play_id"])
     cols = ["total_home_score", "total_away_score"]
     q1 = s[s["qtr"] == 1].groupby("game_id")[cols].last()
@@ -81,27 +103,35 @@ def build_team_games(pbp, sched):
     sched = sched.merge(game_scores(pbp), on="game_id", how="left")
     base = ["game_id", "season", "week", "gameday", "gametime", "spread_line", "total_line",
             "div_game", "roof", "temp", "wind"]
+    # Start from the schedule (not pbp) so UPCOMING games get rows too; their stats are NaN
+    # and their features come from the rolling averages of games already played.
     rows = []
     for side, other in [("home", "away"), ("away", "home")]:
         d = sched[base].copy()
         d["team"], d["opp"] = sched[f"{side}_team"], sched[f"{other}_team"]
         d["is_home"] = int(side == "home")
         d["rest"] = sched[f"{side}_rest"]
+        # nflverse spread_line = expected home margin (positive = home favored); flip for away rows.
         d["team_line"] = sched["spread_line"] if side == "home" else -sched["spread_line"]
         d["pts_q1"], d["pts_h1"] = sched[f"{side}_q1"], sched[f"{side}_h1"]
         d["pts_q1_allowed"], d["pts_h1_allowed"] = sched[f"{other}_q1"], sched[f"{other}_h1"]
         rows.append(d)
     tg = pd.concat(rows, ignore_index=True).merge(_play_stats(pbp), on=["game_id", "team"], how="left")
     tg["dome"] = tg["roof"].isin(["dome", "closed"]).astype(int)
+    # Vegas implied team total, e.g. total 47, team -3 -> 25 points. Strongest single feature.
     tg["implied_total"] = tg["total_line"] / 2 + tg["team_line"] / 2
     tg = tg.sort_values(["team", "gameday", "game_id"]).reset_index(drop=True)
 
+    # Rolling form: shift(1) drops the current game, then an exponentially weighted mean
+    # (half-life 5 games) weights recent games more. It carries across seasons, so Week 1
+    # still has last season's form. Bye weeks are simply skipped.
     stat_cols = [f"off_{c}" for c in OFF_STATS] + [f"def_{c}" for c in DEF_STATS] + PTS
     rolled = tg.groupby("team")[stat_cols].transform(
         lambda x: x.shift(1).ewm(halflife=5, ignore_na=True).mean())
     rolled.columns = [f"r_{c}" for c in stat_cols]
     tg = pd.concat([tg, rolled], axis=1)
 
+    # Attach the OPPONENT's rolling defense (and pace/offense) to each row: "o_" columns.
     opp_cols = ["r_def_epa", "r_def_success", "r_def_explosive", "r_def_epa_q1", "r_def_epa_h1",
                 "r_pts_q1_allowed", "r_pts_h1_allowed", "r_off_plays", "r_off_epa"]
     opp = tg[["game_id", "team"] + opp_cols].rename(
@@ -109,6 +139,8 @@ def build_team_games(pbp, sched):
     return tg.merge(opp, on=["game_id", "opp"], how="left")
 
 
+# Model inputs: r_* = this team's rolling form, o_* = opponent's rolling form,
+# then market lines and game context (home, rest, dome, weather, division).
 FEATURES = [
     "r_off_epa", "r_off_success", "r_off_plays", "r_off_q1_plays", "r_off_h1_plays",
     "r_off_epa_q1", "r_off_epa_h1", "r_off_succ_q1", "r_off_pass_rate_neutral",

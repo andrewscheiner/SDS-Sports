@@ -4,31 +4,37 @@ import { Activity } from "lucide-react";
 export const DashHeader = ({ meta }) => {
   const live = meta?.odds_sources?.includes("live");
   return (
-    <header className="border-b border-[#D4AF37]/20 bg-[#04120B]" data-testid="dash-header">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-        <div className="flex items-center gap-3 text-xs uppercase tracking-[0.25em] text-emerald-400/80">
-          <Activity className="h-4 w-4 text-[#E5C158]" />
-          <span>Scheiner Digital Solutions</span>
-          <span className="text-emerald-300/70">/ sports / nfl</span>
-        </div>
-        <div className="mt-5 flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
+    <header data-testid="dash-header">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-[88px] flex items-center justify-between">
+        <a href="/" className="flex items-center gap-3 text-white no-underline" data-testid="brand-link">
+          <Activity className="h-6 w-6 text-[#ffb71b]" />
+          <span className="text-[1.05rem] font-[650]">Scheiner Digital Solutions</span>
+        </a>
+        <nav className="nav flex items-center gap-7">
+          <span className="text-[#b8c5c6] text-[0.92rem] hidden sm:inline">Sports</span>
+          <span className="nav-contact text-[0.92rem]" data-testid="nav-nfl">NFL</span>
+        </nav>
+      </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-6">
+        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
           <div className="rise">
-            <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight">
-              First Quarter <span className="text-[#E5C158]">&amp;</span> First Half
+            <p className="eyebrow mb-5">SDS Sports · NFL Model</p>
+            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold leading-[0.98] tracking-[-0.05em]">
+              First Quarter <span className="text-[#ffb71b]">&amp;</span> First Half
             </h1>
-            <p className="mt-3 text-sm sm:text-base text-emerald-100/60 max-w-xl">
-              XGBoost score projections for every game, priced against seven sportsbooks.
+            <p className="mt-6 text-base sm:text-lg leading-relaxed text-[#a9b9ba] max-w-xl">
+              XGBoost score projections for every game, priced against DraftKings, FanDuel, BetMGM and ESPN BET.
             </p>
           </div>
           {meta && (
             <div className="flex flex-wrap items-center gap-3">
               <Badge
                 data-testid="odds-source-badge"
-                className={live ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/40" : "bg-[#E5C158]/10 text-[#E5C158] border border-[#E5C158]/40"}
+                className={live ? "bg-[#00636b]/30 text-teal-300 border border-[#008a92]/60" : "bg-[#ffb71b]/10 text-[#ffb71b] border border-[#ffb71b]/40"}
               >
                 {live ? "Live odds" : "Sample odds"}
               </Badge>
-              <Badge data-testid="season-week-badge" className="bg-[#0A2216] text-emerald-100 border border-emerald-800">
+              <Badge data-testid="season-week-badge" className="bg-[#10282b] text-[#a9b9ba] border border-white/10">
                 {meta.season} · Week {meta.current_week}
               </Badge>
             </div>

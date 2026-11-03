@@ -5,12 +5,12 @@ const ScoreRow = ({ team, qb, pred, actual, testid }) => (
   <div className="grid grid-cols-[1fr_4.5rem_4.5rem] items-center py-2" data-testid={testid}>
     <div>
       <span className="font-display text-xl font-bold">{team}</span>
-      {qb && <span className="ml-2 text-xs text-emerald-100/40">{qb}</span>}
+      {qb && <span className="ml-2 text-xs text-[#718789]">{qb}</span>}
     </div>
     {["q1", "h1"].map((p, i) => (
       <div key={p} className="text-right font-num">
-        <span className="text-lg text-[#E5C158]">{pred[p].toFixed(1)}</span>
-        {actual && <span className="block text-[11px] text-emerald-100/50">final {actual[p]}</span>}
+        <span className="text-lg text-[#ffb71b]">{pred[p].toFixed(1)}</span>
+        {actual && <span className="block text-[11px] text-[#718789]">final {actual[p]}</span>}
       </div>
     ))}
   </div>
@@ -27,32 +27,32 @@ export const GameCard = ({ game: g, index, period, minEv, onOpen }) => {
 
   return (
     <article data-testid={`game-card-${g.game_id}`} style={{ animationDelay: `${index * 40}ms` }}
-      className={`rise rounded-lg bg-[#0A2216] border border-[#D4AF37]/15 p-5 flex flex-col ${hot ? "gold-edge" : ""}`}>
-      <div className="flex justify-between text-[11px] uppercase tracking-widest text-emerald-400/70">
+      className={`rise rounded-2xl bg-[#10282b] border border-[#ffb71b]/15 p-5 flex flex-col ${hot ? "gold-edge" : ""}`}>
+      <div className="flex justify-between text-[11px] uppercase tracking-widest text-[#718789]">
         <span>{kickoff(g.gameday, g.gametime)}</span>
         <span className="font-num">{g.home_team} {fmtPoint(-g.spread_line)} · {g.total_line}</span>
       </div>
-      <div className="mt-3 grid grid-cols-[1fr_4.5rem_4.5rem] text-[11px] uppercase tracking-widest text-emerald-100/40">
+      <div className="mt-3 grid grid-cols-[1fr_4.5rem_4.5rem] text-[11px] uppercase tracking-widest text-[#718789]">
         <span /><span className="text-right">Q1</span><span className="text-right">1H</span>
       </div>
-      <div className="divide-y divide-emerald-900/60">
+      <div className="divide-y divide-white/10">
         <ScoreRow team={g.away_team} qb={g.away_qb} pred={side(1)} actual={act(1)} testid={`away-row-${g.game_id}`} />
         <ScoreRow team={g.home_team} qb={g.home_qb} pred={side(0)} actual={act(0)} testid={`home-row-${g.game_id}`} />
       </div>
-      <div className="mt-3 space-y-1 text-xs text-emerald-100/55 font-num">
+      <div className="mt-3 space-y-1 text-xs text-[#718789] font-num">
         <div>Q1 fair: {fair("q1")}</div>
         <div>1H fair: {fair("h1")}</div>
       </div>
-      <div className="mt-4 pt-4 border-t border-emerald-900/60 flex items-center justify-between gap-3">
+      <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between gap-3">
         {best ? (
           <div data-testid={`best-edge-${g.game_id}`} className="text-sm">
-            <span className="text-emerald-100/50 text-xs mr-1">{best.market_label}</span>
+            <span className="text-[#718789] text-xs mr-1">{best.market_label}</span>
             <span className="font-semibold">{betLabel(best)}</span>
-            <span className={`ml-2 font-num font-bold ${best.ev > 0 ? "text-[#E5C158]" : "text-emerald-100/40"}`}>{fmtEv(best.ev)}</span>
+            <span className={`ml-2 font-num font-bold ${best.ev > 0 ? "text-[#ffb71b]" : "text-[#718789]"}`}>{fmtEv(best.ev)}</span>
           </div>
-        ) : <span className="text-xs text-emerald-100/40">No odds</span>}
+        ) : <span className="text-xs text-[#718789]">No odds</span>}
         <Button size="sm" variant="ghost" onClick={onOpen} data-testid={`compare-books-${g.game_id}`}
-          className="text-[#E5C158] hover:bg-[#E5C158]/10 hover:text-[#F5D061] shrink-0">
+          className="text-[#ffb71b] hover:bg-[#ffb71b]/10 hover:text-[#ffc33d] shrink-0">
           Compare books
         </Button>
       </div>

@@ -59,9 +59,12 @@ def run(season=None, week=None, log=print):
     log(f"Loading play-by-play {TRAIN_START}-{season}")
     pbp = load_pbp(list(range(TRAIN_START, season + 1)), season)
     tg = build_team_games(pbp, sched[sched["season"] <= season])
+    # Accuracy report + residual pairs used to turn projections into probabilities.
     log("Backtesting")
     metrics, residuals = backtest(tg, [season - 3, season - 2, season - 1])
 
+    # Walk-forward: week w is predicted by a model trained only on games before week w,
+    # exactly what would have been known at the time -> past weeks are a fair replay.
     log(f"Walk-forward predictions {season} weeks 1-{week}")
     preds = []
     for w in range(1, week + 1):
@@ -74,6 +77,7 @@ def run(season=None, week=None, log=print):
         d["updated_at"] = now
         db.nfl_games.replace_one({"game_id": d["game_id"]}, d, upsert=True)
 
+    # Odds: live from The Odds API for the current week when a real key is set, else SAMPLE.
     names = team_names()
     for w in range(1, week + 1):
         wk = [d for d in docs if d["week"] == w]

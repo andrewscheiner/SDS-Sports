@@ -64,7 +64,7 @@ export default function NflDashboard() {
   const openGame = games.find((g) => g.game_id === open);
 
   return (
-    <div className="min-h-screen bg-[#04120B] text-[#F0FDF4] field-grid" data-testid="nfl-dashboard">
+    <div className="app-container" data-testid="nfl-dashboard">
       <DashHeader meta={meta.data} />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20 space-y-10">
         {meta.isError && (
@@ -80,7 +80,7 @@ export default function NflDashboard() {
           <TopEdges edges={wk.data.top_edges} record={wk.data.record} period={period} minEv={minEv} onOpen={setOpen} />
         )}
         <section data-testid="games-grid" className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {wk.isLoading && <p className="text-emerald-200/60">Loading games…</p>}
+          {wk.isLoading && <p className="text-[#a9b9ba]">Loading games…</p>}
           {games.map((g, i) => (
             <GameCard key={g.game_id} game={g} index={i} period={period} minEv={minEv} onOpen={() => setOpen(g.game_id)} />
           ))}

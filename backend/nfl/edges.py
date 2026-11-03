@@ -1,4 +1,10 @@
-"""Turn predicted scores + residual distribution into probabilities and betting edges."""
+"""Turn predicted scores + residual distribution into probabilities and betting edges.
+
+A point projection (e.g. 5.1 vs 4.3) is not enough to price a bet; we need a distribution.
+We add each historical backtest error pair to the projection (~850 simulated outcomes),
+round to whole points, and count how often each bet wins / loses / pushes.
+EV per $1 = P(win) * (decimal odds - 1) - P(loss); pushes return the stake.
+"""
 import numpy as np
 
 MARKET_LABELS = {"q1_ml": "Q1 ML", "q1_spread": "Q1 Spread", "q1_total": "Q1 Total",
@@ -25,6 +31,7 @@ def simulate(home_pred, away_pred, residuals):
 def fair_lines(home_pred, away_pred, residuals):
     hs, as_ = simulate(home_pred, away_pred, residuals)
     ph, pa, pt = float((hs > as_).mean()), float((hs < as_).mean()), float((hs == as_).mean())
+    # Fair moneyline assumes a tie is a push (common for Q1/1H 2-way ML), so normalize without ties.
     nh = ph / (ph + pa) if ph + pa else 0.5
     return {"home": round(home_pred, 2), "away": round(away_pred, 2),
             "margin": round(home_pred - away_pred, 2), "total": round(home_pred + away_pred, 2),
@@ -35,6 +42,7 @@ def fair_lines(home_pred, away_pred, residuals):
 def _outcomes(market, side, point, hs, as_, has_draw=False):
     """Returns boolean arrays (win, loss) per simulation."""
     if market.endswith("_ml"):
+        # If the book offers a 3-way line (Draw outcome), a tie loses; otherwise it pushes.
         diff = hs - as_ if side == "home" else as_ - hs
         return diff > 0, (diff < 0) | ((diff == 0) & has_draw)
     if market.endswith("_spread"):
@@ -79,6 +87,7 @@ def game_edges(pred, books, residuals, actual=None):
                     "book": b["book"], "book_title": b["title"], "market": market,
                     "market_label": MARKET_LABELS[market], "side": side, "point": point, "price": price,
                     "model_prob": round(pw / (pw + pl), 4) if pw + pl else None,
+                    # implied_prob includes the book's vig; model_prob excludes pushes.
                     "implied_prob": round(1 / dec, 4), "ev": round(pw * (dec - 1) - pl, 4),
                     "result": _grade(market, side, point, act, has_draw),
                 })
