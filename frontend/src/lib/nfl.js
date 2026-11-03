@@ -10,6 +10,8 @@ export const refreshOdds = (season, week) =>
 export const runPipeline = (season, week) =>
   axios.post(`${API}/nfl/pipeline/run`, null, { params: { season, week } }).then((r) => r.data);
 export const pipelineStatus = () => axios.get(`${API}/nfl/pipeline/status`).then((r) => r.data);
+export const getSeason = (season, minEv) =>
+  axios.get(`${API}/nfl/season`, { params: { season, min_ev: minEv } }).then((r) => r.data);
 
 export const fmtPrice = (p) => (p == null ? "—" : p > 0 ? `+${p}` : `${p}`);
 export const fmtPoint = (p) => (p == null ? "" : p > 0 ? `+${p}` : `${p}`);

@@ -2,11 +2,12 @@
 import os
 import zlib
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 import numpy as np
 import requests
 from scipy.stats import norm
 
-BOOKS = {"draftkings": "DraftKings", "fanduel": "FanDuel", "betmgm": "BetMGM", "espnbet": "ESPN BET"}
+BOOKS = {"draftkings": "DraftKings", "fanduel": "FanDuel", "betmgm": "BetMGM", "thescorebet": "theScore Bet"}
 API_MARKETS = {"h2h_q1": "q1_ml", "spreads_q1": "q1_spread", "totals_q1": "q1_total",
                "h2h_h1": "h1_ml", "spreads_h1": "h1_spread", "totals_h1": "h1_total"}
 BASE = "https://api.the-odds-api.com/v4/sports/americanfootball_nfl"
@@ -19,7 +20,18 @@ def api_key():
 
 
 def bookmakers():
-    return os.environ.get("ODDS_BOOKMAKERS", ",".join(BOOKS)).split(",")
+    # ESPN BET rebranded to theScore Bet (Dec 2025); The Odds API key is now "thescorebet".
+    keys = os.environ.get("ODDS_BOOKMAKERS", ",".join(BOOKS)).split(",")
+    return ["thescorebet" if k == "espnbet" else k for k in keys]
+
+
+def kicked_off(game):
+    """True once a game has started (schedule times are US/Eastern)."""
+    if not game.get("gameday"):
+        return False
+    t = datetime.fromisoformat(f"{game['gameday']}T{game.get('gametime') or '13:00'}").replace(
+        tzinfo=ZoneInfo("America/New_York"))
+    return datetime.now(timezone.utc) >= t
 
 
 def _half(x):

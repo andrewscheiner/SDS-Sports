@@ -12,7 +12,7 @@ from pymongo import MongoClient
 from .features import (load_pbp, load_schedule, build_team_games, current_week, team_names,
                        FEATURE_LABELS, nan_to_none)
 from .model import fit, predict, backtest, importance
-from .odds import odds_docs
+from .odds import odds_docs, kicked_off
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 TRAIN_START = 2018
@@ -83,8 +83,9 @@ def run(season=None, week=None, log=print):
         wk = [d for d in docs if d["week"] == w]
         odocs, _ = odds_docs([{**d} for d in wk], names, live=(w == week))
         for o in odocs:
-            if w < week and db.nfl_odds.count_documents({"game_id": o["game_id"]}):
-                continue  # keep stored odds for past weeks
+            if db.nfl_odds.count_documents({"game_id": o["game_id"]}) and (
+                    w < week or kicked_off(next(d for d in wk if d["game_id"] == o["game_id"]))):
+                continue  # keep stored odds once a game starts: that is its closing line
             db.nfl_odds.replace_one({"game_id": o["game_id"]}, o, upsert=True)
 
     db.nfl_meta.replace_one({"_id": "model"}, {

@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-from nfl.edges import game_edges, fair_lines, american_to_decimal  # noqa: E402
+from nfl.edges import game_edges, fair_lines, american_to_decimal, MARKET_LABELS  # noqa: E402
 from nfl import odds as odds_mod  # noqa: E402
 from nfl.pipeline import run as run_pipeline  # noqa: E402
 from nfl.features import team_names  # noqa: E402
@@ -52,14 +52,23 @@ async def nfl_meta():
     }
 
 
-@api.get("/nfl/week")
-async def nfl_week(season: int, week: int):
-    m = await get_meta()
+def _profit(e):
+    return (american_to_decimal(e["price"]) - 1) if e["result"] == "win" else -1 if e["result"] == "loss" else 0
+
+
+def _summary(plays):
+    rec = {r: sum(e["result"] == r for e in plays) for r in ("win", "loss", "push")}
+    rec["units"] = round(sum(_profit(e) for e in plays), 2)
+    rec["roi"] = round(rec["units"] / len(plays), 4) if plays else 0
+    return rec
+
+
+async def build_week(season, week, meta):
     games = await db.nfl_games.find({"season": season, "week": week}, {"_id": 0}).sort(
         [("gameday", 1), ("gametime", 1)]).to_list(32)
     odds = {o["game_id"]: o async for o in db.nfl_odds.find(
         {"game_id": {"$in": [g["game_id"] for g in games]}}, {"_id": 0})}
-    res = m["residuals"]
+    res = meta["residuals"]
     all_edges = []
     for g in games:
         o = odds.get(g["game_id"], {"books": [], "source": "none"})
@@ -68,29 +77,58 @@ async def nfl_week(season: int, week: int):
         g["odds_source"], g["odds_fetched_at"], g["books"] = o["source"], o.get("fetched_at"), o["books"]
         edges = game_edges(pred, o["books"], res, g["actual"])
         for e in edges:
-            e.update(game_id=g["game_id"], matchup=f"{g['away_team']} @ {g['home_team']}",
+            e.update(game_id=g["game_id"], week=week, odds_source=o["source"],
+                     matchup=f"{g['away_team']} @ {g['home_team']}",
                      team=g["home_team"] if e["side"] == "home" else g["away_team"] if e["side"] == "away" else None)
         g["edges"] = edges
         g["best_edge"] = max(edges, key=lambda e: e["ev"]) if edges else None
         all_edges += edges
+    # One play per game/market/side: the book with the best EV (line shopping).
     best = {}
     for e in sorted(all_edges, key=lambda e: -e["ev"]):
         best.setdefault((e["game_id"], e["market"], e["side"]), e)
-    top = sorted([e for p in ("q1", "h1") for e in [x for x in best.values()
+    return games, list(best.values())
+
+
+@api.get("/nfl/week")
+async def nfl_week(season: int, week: int):
+    m = await get_meta()
+    games, best = await build_week(season, week, m)
+    top = sorted([e for p in ("q1", "h1") for e in [x for x in best
                   if x["ev"] > 0 and x["market"].startswith(p)][:10]], key=lambda e: -e["ev"])
-    graded = [e for e in best.values() if e["ev"] >= 0.04 and e["result"]]
-    record = {r: sum(e["result"] == r for e in graded) for r in ("win", "loss", "push")}
-    record["units"] = round(sum(
-        (american_to_decimal(e["price"]) - 1) if e["result"] == "win" else -1 if e["result"] == "loss" else 0
-        for e in graded), 2)
+    record = _summary([e for e in best if e["ev"] >= 0.04 and e["result"]])
     return {"season": season, "week": week, "games": games, "top_edges": top, "record": record}
+
+
+@api.get("/nfl/season")
+async def nfl_season(season: int, min_ev: float = 0.04):
+    """Season tracker: plays are graded at the stored closing line (odds are frozen at kickoff)."""
+    m = await get_meta()
+    weeks = sorted(await db.nfl_games.distinct("week", {"season": season}))
+    plays, by_week, cum = [], [], 0.0
+    for w in weeks:
+        _, best = await build_week(season, w, m)
+        wp = [e for e in best if e["ev"] >= min_ev and e["result"]]
+        if not wp:
+            continue
+        s = _summary(wp)
+        cum += s["units"]
+        by_week.append({"week": w, **s, "cum_units": round(cum, 2)})
+        plays += wp
+    by_market = [{"market": k, "label": MARKET_LABELS[k], **_summary([e for e in plays if e["market"] == k])}
+                 for k in MARKET_LABELS if any(e["market"] == k for e in plays)]
+    sources = sorted({e["odds_source"] for e in plays})
+    return {"season": season, "min_ev": min_ev, "total": _summary(plays), "by_week": by_week,
+            "by_market": by_market, "odds_sources": sources, "n_plays": len(plays)}
 
 
 @api.post("/nfl/odds/refresh")
 async def refresh_odds(season: int, week: int):
     games = await db.nfl_games.find({"season": season, "week": week},
                                     {"_id": 0, "game_id": 1, "home_team": 1, "away_team": 1,
-                                     "spread_line": 1, "total_line": 1}).to_list(32)
+                                     "spread_line": 1, "total_line": 1, "gameday": 1, "gametime": 1}).to_list(32)
+    # Never overwrite odds after kickoff: the stored line becomes the closing line used for grading.
+    games = [g for g in games if not odds_mod.kicked_off(g)]
     try:
         docs, quota = odds_mod.odds_docs(games, team_names(), live=True)
     except Exception as e:
