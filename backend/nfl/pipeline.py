@@ -77,26 +77,28 @@ def run(season=None, week=None, log=print):
         d["updated_at"] = now
         db.nfl_games.replace_one({"game_id": d["game_id"]}, d, upsert=True)
 
-    # Odds: live from The Odds API for the current week when a real key is set, else SAMPLE.
+    # Odds: retraining never spends Odds API credits; it only fills SAMPLE lines for games with none.
     names = team_names()
     for w in range(1, week + 1):
         wk = [d for d in docs if d["week"] == w]
-        odocs, _ = odds_docs([{**d} for d in wk], names, live=(w == week))
+        odocs, _ = odds_docs([{**d} for d in wk], names, live=False)  # live odds come only from the odds crons
         for o in odocs:
             if db.nfl_odds.count_documents({"game_id": o["game_id"]}) and (
                     w < week or kicked_off(next(d for d in wk if d["game_id"] == o["game_id"]))):
                 continue  # keep stored odds once a game starts: that is its closing line
+            if o["source"] == "sample" and db.nfl_odds.count_documents({"game_id": o["game_id"], "source": "live"}):
+                continue  # never replace real lines with sample ones
             db.nfl_odds.replace_one({"game_id": o["game_id"]}, o, upsert=True)
 
-    db.nfl_meta.replace_one({"_id": "model"}, {
-        "_id": "model", "season": season, "current_week": week, "train_start": TRAIN_START,
+    db.nfl_meta.update_one({"_id": "model"}, {"$set": {
+        "season": season, "current_week": week, "train_start": TRAIN_START,
         "trained_at": now, "metrics": metrics,
         "residuals": {k: v.tolist() for k, v in residuals.items()},
         "importance": [{"feature": f, "label": FEATURE_LABELS.get(f, f), "value": round(v, 4)}
                        for f, v in importance(models)[:12]],
         "n_train_rows": int(tg["pts_q1"].notna().sum()),
         "backtest_seasons": [season - 3, season - 2, season - 1],
-    }, upsert=True)
+    }}, upsert=True)
     db.nfl_games.create_index([("season", 1), ("week", 1)])
     log(f"Done: {len(docs)} games written")
     return {"season": season, "week": week, "games": len(docs), "metrics": metrics}

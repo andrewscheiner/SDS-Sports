@@ -1,9 +1,25 @@
 crons:
   - name: nfl-daily-refresh
-    description: "Retrains the NFL Q1/1H model and refreshes sportsbook odds every morning at 7am ET"
-    cron: "0 7 * * *"
+    description: "Retrains the NFL Q1/1H model every morning at 6:30am ET (uses no Odds API credits)"
+    cron: "30 6 * * *"
     timezone: "America/New_York"
     # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
     endpoint: "{{BASE_URL}}/api/cron/nfl-refresh"
+    method: POST
+    enabled: true
+  - name: odds-daily
+    description: "Mon-Sat 7am ET: live odds for games starting before the next refresh"
+    cron: "0 7 * * 1-6"
+    timezone: "America/New_York"
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    endpoint: "{{BASE_URL}}/api/cron/odds-refresh"
+    method: POST
+    enabled: true
+  - name: odds-sunday-hourly
+    description: "Sundays hourly 7am-4pm ET: live odds for games kicking off within the hour"
+    # UTC 11-21 covers 7am-4pm ET in both EDT and EST; the endpoint skips fires outside that window.
+    cron: "0 11-21 * * 0"
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    endpoint: "{{BASE_URL}}/api/cron/odds-refresh"
     method: POST
     enabled: true

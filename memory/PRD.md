@@ -15,6 +15,10 @@ Odds API (no key yet → placeholder key, SAMPLE odds) · show 2026 Week 8 · tr
 - API: `/api/nfl/meta`, `/api/nfl/week`, `POST /api/nfl/odds/refresh`, `POST /api/nfl/pipeline/run`, `/api/nfl/pipeline/status`.
 - Frontend route `/sports/nfl`.
 
+## Implemented (2026-11-03, odds credits)
+- Real ODDS_API_KEY added (free plan, 500 credits/mo; ~6 credits per game priced).
+- Retrain cron (6:30am ET daily) spends 0 credits. Odds crons: Mon–Sat 7am ET + Sunday hourly 7am–4pm ET → `POST /api/cron/odds-refresh`; each run prices only games kicking off before the next scheduled run (~90 credits/week). Manual Odds button follows the same rule.
+
 ## Implemented (2026-11-03)
 - Books: DraftKings, FanDuel, BetMGM, theScore Bet (ex-ESPN BET, key `thescorebet`). Odds frozen at kickoff → stored line = closing line.
 - Season tracker: `GET /api/nfl/season?season&min_ev` (record, units, ROI, cumulative by week, by market) + UI section.

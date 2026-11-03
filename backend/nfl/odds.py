@@ -1,7 +1,7 @@
 """Sportsbook odds: The Odds API (live) or deterministic SAMPLE odds when no real key is set."""
 import os
 import zlib
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 import numpy as np
 import requests
@@ -25,13 +25,39 @@ def bookmakers():
     return ["thescorebet" if k == "espnbet" else k for k in keys]
 
 
+def kickoff_utc(game):
+    t = datetime.fromisoformat(f"{game['gameday']}T{game.get('gametime') or '13:00'}")
+    return t.replace(tzinfo=ZoneInfo("America/New_York"))
+
+
 def kicked_off(game):
     """True once a game has started (schedule times are US/Eastern)."""
-    if not game.get("gameday"):
+    return bool(game.get("gameday")) and datetime.now(timezone.utc) >= kickoff_utc(game)
+
+
+ET = ZoneInfo("America/New_York")
+
+
+def is_scheduled_slot(t):
+    """Odds refresh schedule (US/Eastern): Mon-Sat 7am, Sunday every hour 7am-4pm."""
+    return t.hour == 7 if t.weekday() < 6 else 7 <= t.hour <= 16
+
+
+def next_refresh(now=None):
+    t = (now or datetime.now(ET)).astimezone(ET).replace(minute=0, second=0, microsecond=0)
+    for _ in range(24 * 8):
+        t += timedelta(hours=1)
+        if is_scheduled_slot(t):
+            return t
+    return t
+
+
+def due_for_live(game, now=None):
+    # Credit saver: a game is priced live only if it kicks off before the NEXT scheduled refresh
+    # (+5 min grace), so each game costs ~6 credits once, as close to kickoff as possible.
+    if not game.get("gameday") or kicked_off(game):
         return False
-    t = datetime.fromisoformat(f"{game['gameday']}T{game.get('gametime') or '13:00'}").replace(
-        tzinfo=ZoneInfo("America/New_York"))
-    return datetime.now(timezone.utc) >= t
+    return kickoff_utc(game) <= next_refresh(now) + timedelta(minutes=5)
 
 
 def _half(x):
@@ -94,11 +120,13 @@ def _parse_book(bm, home_name):
 def live_books(games, names):
     """Fetch Q1/1H odds for the given games. Returns ({game_id: books}, quota)."""
     key = api_key()
+    if not any(due_for_live(g) for g in games):
+        return {}, {}  # nothing due: skip even the (free) events call
     r = requests.get(f"{BASE}/events", params={"apiKey": key}, timeout=20)
     r.raise_for_status()
     events = {(e["home_team"], e["away_team"]): e["id"] for e in r.json()}
     result, quota = {}, {}
-    for g in games:
+    for g in [g for g in games if due_for_live(g)]:
         home_name = names.get(g["home_team"])
         eid = events.get((home_name, names.get(g["away_team"])))
         if not eid:

@@ -35,7 +35,11 @@ export const NflSection = () => {
     setBusy(true);
     try {
       const r = await refreshOdds(season, week);
-      toast.success(r.key_configured ? `Odds updated (${r.live} live games)` : "No Odds API key yet — sample odds regenerated");
+      const left = r.quota?.["x-requests-remaining"];
+      const next = new Date(r.next_refresh).toLocaleString("en-US", { weekday: "short", hour: "numeric", timeZone: "America/New_York" });
+      toast.success(r.key_configured
+        ? `${r.live ? `${r.live} game${r.live === 1 ? "" : "s"} priced live` : "No games due — no credits used"}${left ? ` · ${left} credits left` : ""} · next ${next} ET`
+        : "No Odds API key yet — sample odds kept");
       qc.invalidateQueries({ queryKey: ["week"] });
     } catch (e) {
       toast.error(e.response?.data?.detail || "Odds refresh failed");

@@ -49,6 +49,7 @@ async def nfl_meta():
         "backtest_seasons": m["backtest_seasons"], "odds_sources": sources,
         "odds_key_configured": odds_mod.api_key() is not None,
         "books": [{"key": k, "title": odds_mod.BOOKS.get(k, k)} for k in odds_mod.bookmakers()],
+        "odds_refresh": m.get("odds_refresh"), "next_odds_refresh": odds_mod.next_refresh().isoformat(),
     }
 
 
@@ -122,22 +123,71 @@ async def nfl_season(season: int, min_ev: float = 0.04):
             "by_market": by_market, "odds_sources": sources, "n_plays": len(plays)}
 
 
-@api.post("/nfl/odds/refresh")
-async def refresh_odds(season: int, week: int):
-    games = await db.nfl_games.find({"season": season, "week": week},
+async def _refresh_odds():
+    """Price (live) only games due before the next scheduled refresh; never touch started games."""
+    m = await get_meta()
+    games = await db.nfl_games.find({"season": m["season"], "week": m["current_week"]},
                                     {"_id": 0, "game_id": 1, "home_team": 1, "away_team": 1,
                                      "spread_line": 1, "total_line": 1, "gameday": 1, "gametime": 1}).to_list(32)
-    # Never overwrite odds after kickoff: the stored line becomes the closing line used for grading.
     games = [g for g in games if not odds_mod.kicked_off(g)]
+    docs, quota = odds_mod.odds_docs(games, team_names(), live=True)
+    for d in docs:
+        if d["source"] == "sample" and await db.nfl_odds.count_documents({"game_id": d["game_id"]}):
+            continue  # keep whatever is stored (real or sample) instead of regenerating
+        await db.nfl_odds.replace_one({"game_id": d["game_id"]}, d, upsert=True)
+    live = sum(d["source"] == "live" for d in docs)
+    await db.nfl_meta.update_one({"_id": "model"}, {"$set": {"odds_refresh": {
+        "at": datetime.now(timezone.utc).isoformat(), "live_games": live, "quota": quota,
+        "next": odds_mod.next_refresh().isoformat()}}})
+    return {"updated": len(docs), "live": live, "quota": quota, "key_configured": odds_mod.api_key() is not None,
+            "next_refresh": odds_mod.next_refresh().isoformat()}
+
+
+@api.post("/nfl/odds/refresh")
+async def refresh_odds():
     try:
-        docs, quota = odds_mod.odds_docs(games, team_names(), live=True)
+        return await _refresh_odds()
     except Exception as e:
         logger.exception("odds refresh failed")
         raise HTTPException(502, f"Odds provider error: {e}")
-    for d in docs:
-        await db.nfl_odds.replace_one({"game_id": d["game_id"]}, d, upsert=True)
-    return {"updated": len(docs), "live": sum(d["source"] == "live" for d in docs), "quota": quota,
-            "key_configured": odds_mod.api_key() is not None}
+
+
+async def _cron_guard(request, job):
+    auth = request.headers.get("authorization", "")
+    token = auth[7:] if auth.startswith("Bearer ") else ""
+    if not token or not hmac.compare_digest(token, os.environ.get("WEBHOOK_CRON_SECRET") or "\0"):
+        raise HTTPException(401, "Unauthorized")
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(400, "Invalid body")
+    run_id = request.headers.get("x-webhook-id") or (body or {}).get("run_id")
+    if not run_id:
+        raise HTTPException(400, "Missing run id")
+    try:
+        await db.cron_runs.insert_one({"_id": run_id, "job": job, "received_at": datetime.now(timezone.utc).isoformat()})
+    except DuplicateKeyError:
+        return False
+    return True
+
+
+async def _odds_job():
+    try:
+        await _refresh_odds()
+    except Exception:
+        logger.exception("scheduled odds refresh failed")
+
+
+@api.post("/cron/odds-refresh", status_code=202)
+async def cron_odds_refresh(request: Request, bg: BackgroundTasks):
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    if not await _cron_guard(request, "odds-refresh"):
+        return {"status": "duplicate"}
+    # Sunday cron fires hourly in UTC; skip fires outside 7am-4pm Eastern (handles EST/EDT).
+    if not odds_mod.is_scheduled_slot(datetime.now(odds_mod.ET).replace(minute=0)):
+        return {"status": "outside_window"}
+    bg.add_task(_odds_job)
+    return {"status": "queued"}
 
 
 def _run_job(season, week):
@@ -163,25 +213,11 @@ async def pipeline_run(bg: BackgroundTasks, season: int | None = None, week: int
 @api.post("/cron/nfl-refresh", status_code=202)
 async def cron_nfl_refresh(request: Request, bg: BackgroundTasks):
     # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
-    auth = request.headers.get("authorization", "")
-    token = auth[7:] if auth.startswith("Bearer ") else ""
-    if not token or not hmac.compare_digest(token, os.environ.get("WEBHOOK_CRON_SECRET") or "\0"):
-        raise HTTPException(401, "Unauthorized")
-    try:
-        body = await request.json()
-    except Exception:
-        raise HTTPException(400, "Invalid body")
-    run_id = request.headers.get("x-webhook-id") or (body or {}).get("run_id")
-    if not run_id:
-        raise HTTPException(400, "Missing run id")
-    try:
-        await db.cron_runs.insert_one({"_id": run_id, "job": "nfl-refresh",
-                                       "received_at": datetime.now(timezone.utc).isoformat()})
-    except DuplicateKeyError:
+    if not await _cron_guard(request, "nfl-refresh"):
         return {"status": "duplicate"}
     if JOB["status"] == "running":
         return {"status": "already_running"}
-    JOB.update(status="running", message="Queued (daily refresh)")
+    JOB.update(status="running", message="Queued (daily retrain)")
     bg.add_task(_run_job, None, None)
     return {"status": "queued"}
 
