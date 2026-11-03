@@ -165,7 +165,7 @@ async def cron_nfl_refresh(request: Request, bg: BackgroundTasks):
     # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
     auth = request.headers.get("authorization", "")
     token = auth[7:] if auth.startswith("Bearer ") else ""
-    if not token or not hmac.compare_digest(token, os.environ["WEBHOOK_CRON_SECRET"]):
+    if not token or not hmac.compare_digest(token, os.environ.get("WEBHOOK_CRON_SECRET") or "\0"):
         raise HTTPException(401, "Unauthorized")
     try:
         body = await request.json()

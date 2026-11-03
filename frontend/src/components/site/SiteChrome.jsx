@@ -7,12 +7,13 @@ export const SiteHeader = () => (
       <img src="/sds-logo.png" alt="Scheiner Digital Solutions" className="w-[46px] h-[46px] object-contain" />
       <span className="hidden md:inline text-[1.05rem] font-[650]">Scheiner Digital Solutions</span>
     </a>
-    <nav className="nav flex items-center gap-3.5 md:gap-[30px]">
+    <nav className="nav flex items-center gap-3 md:gap-[30px] text-[0.8rem] md:text-[0.92rem]">
       {LINKS.map(([l, h]) => (
-        <a key={l} href={`${SITE}/${h}`} data-testid={`site-nav-${l.toLowerCase()}`} className="hidden sm:inline">{l}</a>
+        <a key={l} href={`${SITE}/${h}`} data-testid={`site-nav-${l.toLowerCase()}`}
+          className={`!text-[0.8rem] md:!text-[0.92rem] ${l === "Home" ? "hidden sm:inline" : ""}`}>{l}</a>
       ))}
-      <a href="#sports" data-testid="site-nav-sports" className="!text-white">Sports</a>
-      <a href={`${SITE}/#contact`} className="nav-contact" data-testid="site-nav-contact">Contact</a>
+      <a href="#sports" data-testid="site-nav-sports" className="!text-white !text-[0.8rem] md:!text-[0.92rem]">Sports</a>
+      <a href={`${SITE}/#contact`} className="nav-contact !px-3 md:!px-[18px] !text-[0.8rem] md:!text-[0.92rem]" data-testid="site-nav-contact">Contact</a>
     </nav>
   </header>
 );
